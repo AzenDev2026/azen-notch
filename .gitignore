@@ -1,0 +1,9 @@
+test/*.png
+test/*.jpg
+!test/notch-ref-1.jpg
+!test/notch-ref-2.jpg
+!test/notch-candidate-A.png
+!test/notch-candidate-B.png
+!test/notch-candidate-C.png
+!test/notch-candidate-D.png
+test/venv/
