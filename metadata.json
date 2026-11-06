@@ -1,0 +1,24 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Id": "com.azen.notch",
+        "Name": "Azen Notch",
+        "Description": "iPhone Dynamic Island 风格的桌面刘海：来通知、调音量、调亮度时在面板上展开显示 3 秒，然后收起。",
+        "Category": "Utilities",
+        "Icon": "smartphone",
+        "Version": "1.0.0",
+        "License": "MIT",
+        "EnabledByDefault": false,
+        "Authors": [
+            {
+                "Name": "AzenDev2026"
+            }
+        ],
+        "Website": "https://github.com/AzenDev2026/AzenDev"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0",
+    "X-Plasma-MainScript": "ui/main.qml",
+    "X-KDE-PluginInfo-Name": "Azen Notch",
+    "X-KDE-PluginInfo-Author": "AzenDev2026",
+    "X-KDE-PluginInfo-Version": "1.0.0"
+}
