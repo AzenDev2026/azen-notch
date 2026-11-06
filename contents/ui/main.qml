@@ -39,9 +39,9 @@ PlasmoidItem {
             : Math.max(26, Math.min(38, (verticalPanel ? parent.width : parent.height) - 6)))
         : 34
 
-    // 刘海轮廓：底部拱形大圆角半径、顶部内凹耳深度（随面板高度等比缩放）
+    // 刘海轮廓：底部拱形大圆角半径、顶部外凸翼宽（拱门肩，随面板高度等比缩放）
     readonly property int cornerR: Math.max(10, Math.round(islandHeight * 0.5))
-    readonly property int ear: attached ? Math.max(6, Math.round(islandHeight * 0.24)) : 0
+    readonly property int wing: attached ? Math.max(5, Math.round(islandHeight * 0.22)) : 0
 
     // 实测缝隙：组件格位顶/底边到屏幕顶/底边的像素距离。
     // 刘海会按这个量向外延伸，保证与屏幕边框零缝隙连接
@@ -346,8 +346,8 @@ PlasmoidItem {
                 }
 
                 // ---- 顶部贴边：MacBook 刘海轮廓 ----
-                // 顶边全宽紧贴屏幕边框（接缝与屏幕黑框融为一体、自然隐形），
-                // 只保留底部两个拱形大圆角——可见轮廓就是一个"长方形+拱形角"
+                // 顶边全宽（另加两侧外凸翼）紧贴屏幕边框，翼为向外鼓的拱形肩
+                // （拱门式过渡、更有连接感），底部为大拱形圆角
                 Shape {
                     id: topNotch
                     anchors.fill: parent
@@ -355,29 +355,43 @@ PlasmoidItem {
                     ShapePath {
                         fillColor: root.notchColor
                         strokeColor: "transparent"
-                        startX: 0; startY: 0
-                        // 左侧边：从屏幕顶边笔直向下
-                        PathLine { x: 0; y: pill.height - root.cornerR }
-                        // 左下大圆角（拱形）
-                        PathCubic {
-                            x: root.cornerR; y: pill.height
-                            control1X: 0; control1Y: pill.height - root.cornerR * 0.4477
-                            control2X: root.cornerR * 0.4477; control2Y: pill.height
+                        startX: -root.wing; startY: 0
+                        // 顶边（含两翼）：从 (-wing,0) 到 (W+wing,0)
+                        PathLine { x: root.pillWidth + root.wing; y: 0 }
+                        // 右翼：从 (W+wing,0) 向外凸绕回 (W,wing)
+                        PathArc {
+                            x: root.pillWidth; y: root.wing
+                            radiusX: root.wing; radiusY: root.wing
+                            direction: PathArc.Clockwise
                         }
-                        // 底边
-                        PathLine { x: root.pillWidth - root.cornerR; y: pill.height }
+                        // 右侧边
+                        PathLine { x: root.pillWidth; y: pill.height - root.cornerR }
                         // 右下大圆角（拱形）
                         PathCubic {
-                            x: root.pillWidth; y: pill.height - root.cornerR
-                            control1X: root.pillWidth - root.cornerR * 0.4477; control1Y: pill.height
-                            control2X: root.pillWidth; control2Y: pill.height - root.cornerR * 0.4477
+                            x: root.pillWidth - root.cornerR; y: pill.height
+                            control1X: root.pillWidth; control1Y: pill.height - root.cornerR * 0.4477
+                            control2X: root.pillWidth - root.cornerR * 0.4477; control2Y: pill.height
                         }
-                        // 右侧边：笔直向上回到屏幕顶边（闭合后顶边为全宽直线）
-                        PathLine { x: root.pillWidth; y: 0 }
+                        // 底边
+                        PathLine { x: root.cornerR; y: pill.height }
+                        // 左下大圆角（拱形）
+                        PathCubic {
+                            x: 0; y: pill.height - root.cornerR
+                            control1X: root.cornerR * 0.4477; control1Y: pill.height
+                            control2X: 0; control2Y: pill.height - root.cornerR * 0.4477
+                        }
+                        // 左侧边
+                        PathLine { x: 0; y: root.wing }
+                        // 左翼：从 (0,wing) 向外凸绕回 (-wing,0)
+                        PathArc {
+                            x: -root.wing; y: 0
+                            radiusX: root.wing; radiusY: root.wing
+                            direction: PathArc.Clockwise
+                        }
                     }
                 }
 
-                // ---- 底部贴边：镜像轮廓（底边全宽贴边 + 顶部大圆角） ----
+                // ---- 底部贴边：镜像轮廓（底边全宽+下翼 + 顶部大圆角） ----
                 Shape {
                     id: bottomNotch
                     anchors.fill: parent
@@ -385,20 +399,31 @@ PlasmoidItem {
                     ShapePath {
                         fillColor: root.notchColor
                         strokeColor: "transparent"
-                        startX: 0; startY: pill.height
-                        PathLine { x: 0; y: root.cornerR }
-                        PathCubic {
-                            x: root.cornerR; y: 0
-                            control1X: 0; control1Y: root.cornerR * 0.4477
-                            control2X: root.cornerR * 0.4477; control2Y: 0
+                        startX: -root.wing; startY: pill.height
+                        PathLine { x: root.pillWidth + root.wing; y: pill.height }
+                        PathArc {
+                            x: root.pillWidth; y: pill.height - root.wing
+                            radiusX: root.wing; radiusY: root.wing
+                            direction: PathArc.Counterclockwise
                         }
-                        PathLine { x: root.pillWidth - root.cornerR; y: 0 }
+                        PathLine { x: root.pillWidth; y: root.cornerR }
                         PathCubic {
-                            x: root.pillWidth; y: root.cornerR
-                            control1X: root.pillWidth - root.cornerR * 0.4477; control1Y: 0
-                            control2X: root.pillWidth; control2Y: root.cornerR * 0.4477
+                            x: root.pillWidth - root.cornerR; y: 0
+                            control1X: root.pillWidth; control1Y: root.cornerR * 0.4477
+                            control2X: root.pillWidth - root.cornerR * 0.4477; control2Y: 0
                         }
-                        PathLine { x: root.pillWidth; y: pill.height }
+                        PathLine { x: root.cornerR; y: 0 }
+                        PathCubic {
+                            x: 0; y: root.cornerR
+                            control1X: root.cornerR * 0.4477; control1Y: 0
+                            control2X: 0; control2Y: root.cornerR * 0.4477
+                        }
+                        PathLine { x: 0; y: pill.height - root.wing }
+                        PathArc {
+                            x: -root.wing; y: pill.height
+                            radiusX: root.wing; radiusY: root.wing
+                            direction: PathArc.Counterclockwise
+                        }
                     }
                 }
 
