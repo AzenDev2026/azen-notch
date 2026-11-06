@@ -9,6 +9,7 @@
  */
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Shapes
 import org.kde.plasma.core as PlasmaCore
 import org.kde.plasma.plasmoid
 import org.kde.notificationmanager as NotificationManager
@@ -25,8 +26,8 @@ PlasmoidItem {
     readonly property int showDuration: 3000  // 每次显示的时长（毫秒），默认 3 秒
     readonly property color notchColor: "#000000"
 
-    // 贴边模式：在顶部面板时刘海与屏幕上缘融为一体（MacBook 刘海样式），
-    // 顶部平直连接边框、底部圆润；在底部面板时同理向下贴边；
+    // 贴边模式：在顶部面板时刘海与屏幕上缘连成一体（MacBook 刘海样式），
+    // 四角圆润、顶部零缝隙；在底部面板时同理向下贴边；
     // 在其他位置（桌面等）保持完整的悬浮胶囊
     readonly property bool topEdge: plasmoid.location === PlasmaCore.Types.TopEdge
     readonly property bool bottomEdge: plasmoid.location === PlasmaCore.Types.BottomEdge
@@ -37,6 +38,39 @@ PlasmoidItem {
             ? parent.height
             : Math.max(26, Math.min(38, (verticalPanel ? parent.width : parent.height) - 6)))
         : 34
+
+    // 刘海轮廓：底部拱形大圆角半径、顶部内凹耳深度（随面板高度等比缩放）
+    readonly property int cornerR: Math.max(10, Math.round(islandHeight * 0.5))
+    readonly property int ear: attached ? Math.max(6, Math.round(islandHeight * 0.24)) : 0
+
+    // 实测缝隙：组件格位顶/底边到屏幕顶/底边的像素距离。
+    // 刘海会按这个量向外延伸，保证与屏幕边框零缝隙连接
+    property real attachGap: 0
+
+    function measureAttachGap() {
+        if (!attached || !compactRepresentationItem)
+            return
+        try {
+            // 窗口自身在屏幕上的偏移（面板可能浮动、不贴屏幕顶边）
+            let winTop = 0
+            if (compactRepresentationItem.Window && compactRepresentationItem.Window.window)
+                winTop = compactRepresentationItem.Window.window.y
+            const cellTop = winTop + compactRepresentationItem.mapToItem(null, 0, 0).y
+            const cellBottom = cellTop + compactRepresentationItem.height
+            let edge = cellTop + (topEdge ? 0 : compactRepresentationItem.height)
+            if (plasmoid.containment && plasmoid.containment.screenGeometry) {
+                edge = topEdge
+                    ? plasmoid.containment.screenGeometry.y
+                    : plasmoid.containment.screenGeometry.y + plasmoid.containment.screenGeometry.height
+            }
+            const g = topEdge ? Math.max(0, cellTop - edge) : Math.max(0, edge - cellBottom)
+            if (Math.abs(g + 1 - attachGap) > 0.5) {
+                attachGap = Math.round(g) + 1   // +1px 保险，确保零缝隙
+                print("AzenNotch: gap=" + attachGap + " cellTop=" + cellTop + " winTop=" + winTop + " edge=" + edge)
+            }
+        } catch (e) {
+        }
+    }
 
     // 组件在面板中预留固定宽度（= 通知宽度），刘海在其中弹性变形，
     // 这样展开时不会把两侧的面板元素挤得跳来跳去
@@ -250,6 +284,21 @@ PlasmoidItem {
     Component.onCompleted: {
         lastUnread = notifications.unreadNotificationsCount
         refreshVolume()
+        Qt.callLater(measureAttachGap)
+    }
+
+    // 布局稳定后再量缝隙（首次加载时 mapToItem 可能还没就位）
+    Timer {
+        interval: 600
+        repeat: false
+        running: attached
+        onTriggered: root.measureAttachGap()
+    }
+    Timer {
+        interval: 1500
+        repeat: false
+        running: attached
+        onTriggered: root.measureAttachGap()
     }
 
     // ==================== 面板集成 ====================
@@ -271,16 +320,87 @@ PlasmoidItem {
         id: compactRep
 
         Item {
-            Rectangle {
+            Item {
                 id: pill
 
-                anchors.centerIn: parent
                 width: root.pillWidth
-                height: parent.height
-                radius: root.attached ? Math.round(height * 0.45) : height / 2
-                color: root.notchColor
-                border.width: root.attached ? 0 : 1
-                border.color: "#1AFFFFFF"
+                height: root.attached ? parent.height + root.attachGap : parent.height
+
+                // 贴边时把刘海延伸到屏幕边缘（零缝隙）
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.verticalCenter: root.attached ? undefined : parent.verticalCenter
+                anchors.top: root.topEdge ? parent.top : undefined
+                anchors.topMargin: root.topEdge ? -root.attachGap : 0
+                anchors.bottom: root.bottomEdge ? parent.bottom : undefined
+                anchors.bottomMargin: root.bottomEdge ? -root.attachGap : 0
+
+                // ---- 悬浮模式（桌面等非面板位置）：完整胶囊 ----
+                Rectangle {
+                    id: floatingPill
+                    anchors.fill: parent
+                    visible: !root.attached
+                    radius: height / 2
+                    color: root.notchColor
+                    border.width: 1
+                    border.color: "#1AFFFFFF"
+                }
+
+                // ---- 顶部贴边：MacBook 刘海轮廓 ----
+                // 顶边全宽紧贴屏幕边框（接缝与屏幕黑框融为一体、自然隐形），
+                // 只保留底部两个拱形大圆角——可见轮廓就是一个"长方形+拱形角"
+                Shape {
+                    id: topNotch
+                    anchors.fill: parent
+                    visible: root.topEdge
+                    ShapePath {
+                        fillColor: root.notchColor
+                        strokeColor: "transparent"
+                        startX: 0; startY: 0
+                        // 左侧边：从屏幕顶边笔直向下
+                        PathLine { x: 0; y: pill.height - root.cornerR }
+                        // 左下大圆角（拱形）
+                        PathCubic {
+                            x: root.cornerR; y: pill.height
+                            control1X: 0; control1Y: pill.height - root.cornerR * 0.4477
+                            control2X: root.cornerR * 0.4477; control2Y: pill.height
+                        }
+                        // 底边
+                        PathLine { x: root.pillWidth - root.cornerR; y: pill.height }
+                        // 右下大圆角（拱形）
+                        PathCubic {
+                            x: root.pillWidth; y: pill.height - root.cornerR
+                            control1X: root.pillWidth - root.cornerR * 0.4477; control1Y: pill.height
+                            control2X: root.pillWidth; control2Y: pill.height - root.cornerR * 0.4477
+                        }
+                        // 右侧边：笔直向上回到屏幕顶边（闭合后顶边为全宽直线）
+                        PathLine { x: root.pillWidth; y: 0 }
+                    }
+                }
+
+                // ---- 底部贴边：镜像轮廓（底边全宽贴边 + 顶部大圆角） ----
+                Shape {
+                    id: bottomNotch
+                    anchors.fill: parent
+                    visible: root.bottomEdge
+                    ShapePath {
+                        fillColor: root.notchColor
+                        strokeColor: "transparent"
+                        startX: 0; startY: pill.height
+                        PathLine { x: 0; y: root.cornerR }
+                        PathCubic {
+                            x: root.cornerR; y: 0
+                            control1X: 0; control1Y: root.cornerR * 0.4477
+                            control2X: root.cornerR * 0.4477; control2Y: 0
+                        }
+                        PathLine { x: root.pillWidth - root.cornerR; y: 0 }
+                        PathCubic {
+                            x: root.pillWidth; y: root.cornerR
+                            control1X: root.pillWidth - root.cornerR * 0.4477; control1Y: 0
+                            control2X: root.pillWidth; control2Y: root.cornerR * 0.4477
+                        }
+                        PathLine { x: root.pillWidth; y: pill.height }
+                    }
+                }
 
                 // 摄像头小点（静息时露出，像 MacBook 刘海）
                 Rectangle {
@@ -310,40 +430,6 @@ PlasmoidItem {
                     anchors.fill: pill
                     active: root.mode === "brightness"
                     percent: root.brightnessPercent
-                }
-
-                // 贴边时把顶角/底角修成直角，与面板边框平齐连接
-                Rectangle {
-                    visible: root.topEdge
-                    anchors.top: pill.top
-                    anchors.left: pill.left
-                    width: pill.radius
-                    height: pill.radius
-                    color: root.notchColor
-                }
-                Rectangle {
-                    visible: root.topEdge
-                    anchors.top: pill.top
-                    anchors.right: pill.right
-                    width: pill.radius
-                    height: pill.radius
-                    color: root.notchColor
-                }
-                Rectangle {
-                    visible: root.bottomEdge
-                    anchors.bottom: pill.bottom
-                    anchors.left: pill.left
-                    width: pill.radius
-                    height: pill.radius
-                    color: root.notchColor
-                }
-                Rectangle {
-                    visible: root.bottomEdge
-                    anchors.bottom: pill.bottom
-                    anchors.right: pill.right
-                    width: pill.radius
-                    height: pill.radius
-                    color: root.notchColor
                 }
             }
         }
