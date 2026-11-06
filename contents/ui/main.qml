@@ -25,10 +25,17 @@ PlasmoidItem {
     readonly property int showDuration: 3000  // 每次显示的时长（毫秒），默认 3 秒
     readonly property color notchColor: "#000000"
 
-    // 面板里的高度：跟随面板厚度（上下留边距），限制在 26~38px
+    // 贴边模式：在顶部面板时刘海与屏幕上缘融为一体（MacBook 刘海样式），
+    // 顶部平直连接边框、底部圆润；在底部面板时同理向下贴边；
+    // 在其他位置（桌面等）保持完整的悬浮胶囊
+    readonly property bool topEdge: plasmoid.location === PlasmaCore.Types.TopEdge
+    readonly property bool bottomEdge: plasmoid.location === PlasmaCore.Types.BottomEdge
+    readonly property bool attached: topEdge || bottomEdge
     readonly property bool verticalPanel: plasmoid.formFactor === PlasmaCore.Types.Vertical
     readonly property int islandHeight: parent
-        ? Math.max(26, Math.min(38, (verticalPanel ? parent.width : parent.height) - 6))
+        ? (attached
+            ? parent.height
+            : Math.max(26, Math.min(38, (verticalPanel ? parent.width : parent.height) - 6)))
         : 34
 
     // 组件在面板中预留固定宽度（= 通知宽度），刘海在其中弹性变形，
@@ -270,9 +277,9 @@ PlasmoidItem {
                 anchors.centerIn: parent
                 width: root.pillWidth
                 height: parent.height
-                radius: height / 2
+                radius: root.attached ? Math.round(height * 0.45) : height / 2
                 color: root.notchColor
-                border.width: 1
+                border.width: root.attached ? 0 : 1
                 border.color: "#1AFFFFFF"
 
                 // 摄像头小点（静息时露出，像 MacBook 刘海）
@@ -303,6 +310,40 @@ PlasmoidItem {
                     anchors.fill: pill
                     active: root.mode === "brightness"
                     percent: root.brightnessPercent
+                }
+
+                // 贴边时把顶角/底角修成直角，与面板边框平齐连接
+                Rectangle {
+                    visible: root.topEdge
+                    anchors.top: pill.top
+                    anchors.left: pill.left
+                    width: pill.radius
+                    height: pill.radius
+                    color: root.notchColor
+                }
+                Rectangle {
+                    visible: root.topEdge
+                    anchors.top: pill.top
+                    anchors.right: pill.right
+                    width: pill.radius
+                    height: pill.radius
+                    color: root.notchColor
+                }
+                Rectangle {
+                    visible: root.bottomEdge
+                    anchors.bottom: pill.bottom
+                    anchors.left: pill.left
+                    width: pill.radius
+                    height: pill.radius
+                    color: root.notchColor
+                }
+                Rectangle {
+                    visible: root.bottomEdge
+                    anchors.bottom: pill.bottom
+                    anchors.right: pill.right
+                    width: pill.radius
+                    height: pill.radius
+                    color: root.notchColor
                 }
             }
         }
