@@ -1,53 +1,61 @@
 # Azen Notch
 
-iPhone Dynamic Island / MacBook 刘海风格的 KDE Plasma 6 面板组件。
-放在顶部面板中央，纯黑圆角胶囊，带摄像头小点。
+An iPhone Dynamic Island / MacBook notch style widget for the KDE Plasma 6 panel.
+Sits centered on the top panel: a pure black pill with a camera dot.
 
-## 功能
+## Features
 
-- **静息**：约 5 个应用图标宽的纯黑胶囊（中间有 MacBook 风格的摄像头小点）
-- **来通知**：弹性展开，显示应用图标 + 标题 + 应用名/正文，3 秒后收起（通知最多排队 3 条）
-- **调音量**：展开显示白色喇叭 + 音量条 + 百分比，3 秒后收起；点喇叭切换静音，拖动音量条调音量
-- **调亮度**：展开显示白色太阳 + 亮度条 + 百分比，3 秒后收起；拖动亮度条调亮度
-- 展开动画使用 iOS 式弹簧曲线（Easing.Bezier），组件在面板里预留固定宽度、胶囊内部变形，不会挤压两侧面板元素
+- **Idle**: a pure black capsule about 5 app icons wide (with a MacBook-style camera dot in the middle)
+- **Notifications**: springs open to show the app icon + title + app name/body, collapses after
+  3 seconds (up to 3 notifications queued)
+- **Volume**: expands to show a white speaker glyph + volume bar + percentage for 3 seconds;
+  click the speaker to toggle mute, drag the bar to adjust volume
+- **Brightness**: expands to show a white sun glyph + brightness bar + percentage for 3 seconds;
+  drag the bar to adjust brightness
+- Expansion uses an iOS-style spring curve (Easing.Bezier). The widget reserves a fixed width in
+  the panel and morphs inside it, so neighbors never get pushed around
 
-## 样式（贴边刘海）
+## Shape (edge-attached notch)
 
-- 放在**顶部面板**时是真正的 MacBook 刘海样式：顶边全宽紧贴屏幕上缘，且两侧各有一个
-  **向外鼓起的拱形翼**（外凸弧，与下方底部内拱弧在侧边中点切线相连，形成一整条圆润连贯的
-  曲线、无直边无拼接感），接缝与屏幕黑框融为一体、自然隐形；放在底部面板时自动改为向下贴边；
-  放在桌面等位置时保持完整悬浮胶囊
-- 贴边模式自动识别面板位置（`Plasmoid.location`），并实测组件格位到屏幕边缘的距离
-  （`attachGap`）自动补足，保证零缝隙
+- On a **top panel** it renders as a true MacBook-style notch: the top edge spans the full width
+  flush against the screen edge, with an **outward-bulging arch** on each side (an outward arc
+  joined tangentially to the bottom inner arc at the side midpoint, forming one continuous smooth
+  curve with no straight segments or seams). The junction blends invisibly into the screen's
+  black frame. On a bottom panel it mirrors downward automatically; on the desktop it keeps the
+  full floating capsule
+- Edge-attached mode auto-detects the panel position (`Plasmoid.location`) and measures the
+  actual distance from the widget slot to the screen edge (`attachGap`) at runtime, guaranteeing
+  a zero-gap connection
 
-## 参数调整（contents/ui/main.qml 顶部常量区）
+## Configuration (constants at the top of `contents/ui/main.qml`)
 
-| 常量 | 默认 | 含义 |
+| Constant | Default | Meaning |
 |---|---|---|
-| `idleWidth` | 178 | 静息时宽度 |
-| `noticeWidth` | 350 | 通知时宽度（也是面板预留宽度） |
-| `ctrlWidth` | 270 | 音量/亮度时宽度 |
-| `showDuration` | 3000 | 显示时长（毫秒） |
-| `notchColor` | #000000 | 胶囊颜色 |
+| `idleWidth` | 178 | Width at rest |
+| `noticeWidth` | 350 | Width when showing a notification (also the reserved panel width) |
+| `ctrlWidth` | 270 | Width for volume/brightness |
+| `showDuration` | 3000 | Display duration (ms) |
+| `notchColor` | #000000 | Capsule color |
 
-改完重新打包即可生效：`kpackagetool6 -t Plasma/Applet -u .`，然后重启 plasmashell。
+After editing, reinstall with `kpackagetool6 -t Plasma/Applet -u .` and restart plasmashell.
 
-## 技术要点
+## Technical notes
 
-- **通知**：`org.kde.notificationmanager` 的 `Notifications` 模型，
-  用 `unreadNotificationsCount` 增量检测新通知（避免开机把历史通知弹出来）
-- **音量**：`org.kde.plasma.private.volume` 的 `PreferredDevice.sink` + `PulseAudio.NormalVolume`，
-  监听 `volumeChanged`/`mutedChanged`
-- **亮度**：`org.kde.plasma.private.brightnesscontrolplugin` 的 `ScreenBrightnessControl`，
-  通过 `displays` 模型的 `brightnessChanged` 信号监听变化
-- **部署**：`kpackagetool6 -t Plasma/Applet -i .`（升级用 `-u`）
-- **调试**：`journalctl --user -u plasma-plasmashell.service`
+- **Notifications**: `org.kde.notificationmanager`'s `Notifications` model, using
+  `unreadNotificationsCount` deltas to detect new notifications (so history is not replayed at startup)
+- **Volume**: `org.kde.plasma.private.volume`'s `PreferredDevice.sink` + `PulseAudio.NormalVolume`,
+  listening to `volumeChanged`/`mutedChanged`
+- **Brightness**: `org.kde.plasma.private.brightnesscontrolplugin`'s `ScreenBrightnessControl`,
+  watching `brightnessChanged` on the `displays` model
+- **Deploy**: `kpackagetool6 -t Plasma/Applet -i .` (use `-u` to upgrade)
+- **Debug**: `journalctl --user -u plasma-plasmashell.service`
 
-## 测试
+## Testing
 
-- `test/engines.qml`：三个数据源的冒烟测试
-- `test/views.qml`：三个视图的渲染测试
-- `test/screenshot.py`：通过 xdg-desktop-portal 截屏（需要 portal 正常时可用）
-- 真实触发：`gdbus call ... org.freedesktop.Notifications.Notify` 发通知；
-  `qdbus6 org.kde.kglobalaccel /component/kmix ... invokeShortcut increase_volume` 模拟音量键；
-  `... /component/org_kde_powerdevil ... "Increase Screen Brightness Small"` 模拟亮度键
+- `test/engines.qml`: smoke test for the three data sources
+- `test/views.qml`: render test for the three views
+- `test/screenshot.py`: full-screen capture via xdg-desktop-portal
+- Real triggers: send a notification via
+  `gdbus call ... org.freedesktop.Notifications.Notify`; simulate the volume key with
+  `qdbus6 org.kde.kglobalaccel /component/kmix ... invokeShortcut increase_volume`; simulate the
+  brightness key with `... /component/org_kde_powerdevil ... "Increase Screen Brightness Small"`
